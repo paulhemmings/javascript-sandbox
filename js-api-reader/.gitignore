@@ -1,0 +1,6 @@
+# node stuff
+node_modules
+.npm
+
+# Mac stuff
+.DS_Store

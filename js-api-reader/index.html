@@ -1,0 +1,186 @@
+<html>
+  <head>
+      <title>api parser</title>
+      <style>
+          body {
+            margin:5px;
+            padding:5px;
+          }
+          label {
+              font-weight: bold;
+              padding-right: 10px;
+          }
+          input {
+            width:50%;
+            font-size: 15px;
+          }
+          #result-table div.header {
+              display:inline-block;
+              border-left:solid 1px #ccc;
+              padding:10px;
+              margin:10px;
+          }
+          #result-table div.cell {
+              display:inline-block;
+              border-left:solid 1px #ccc;
+              vertical-align: top;
+              padding:10 10 0 10;
+          }
+          #result-table div.row {
+              border-top:solid 1px #eee;
+          }
+          div.object-item {
+          }
+          div.value-item {
+              font-family: monospace;
+          }
+      </style>
+  </head>
+  <body>
+
+      <!-- show the API source -->
+      <label for="api-source">Source</label>
+      <input type="text" id="api-source" placeholder="http://api.flickr.com/services/feeds/photos_public.gne?tags=cats&format=json" />
+
+      <!-- reload the data -->
+      <button id="reload-button">Reload</button>
+      </br></br>
+      <!-- show the editable query string (pre-include example) -->
+      <label for="query-string">Path</label>
+      <input type="text" id="query-string" value="" placeholder="jsonFlickrFeed" />
+      </br></br>
+      <!-- show the attributes you want to include in the table -->
+      <label for="result-properties">Properties</label>
+      <input type="text" id="result-properties" value="" placeholder="title, linke, description" />
+
+      <!-- kick it off -->
+      <button id="go-button">Go</button>
+      </br></br>
+      <!-- show the results in a table -->
+      <label for="result-table">Results</label>
+      <div id="result-table">
+      </div>
+      </br>
+
+      <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+      <script type="text/javascript">
+
+        (function() {
+
+            var apiData = null;
+
+
+            function addValue(cellElement, header, value) {
+                if (Array.isArray(value)) {
+                    for(var index = 0; index < value.length; index++) {
+                        var itemElement = document.createElement('div');
+                        $(itemElement).addClass('array-item');
+                        $(cellElement).append(itemElement);
+                        addValue(itemElement, header + '[' + index + "]", value[index]);
+                    }
+                } else if (value instanceof Object) {
+                    var itemElement = document.createElement('div');
+                    $(itemElement).addClass('object-item');
+                    // $(itemElement).append(document.createElement('hr'));
+                    for(var property in value) {
+                        addValue(itemElement, header + "." + property, value[property]);
+                    }
+                    // $(itemElement).append(document.createElement('hr'));
+                    $(cellElement).append(itemElement);
+                } else {
+                    var itemElement = document.createElement('div');
+                    $(itemElement).addClass('value-item');
+                    $(itemElement).html(header + " :: " + value);
+                    $(cellElement).append(itemElement);
+                }
+            }
+
+            function display() {
+                if (!apiData) {
+                    reload(parse);
+                } else {
+                    parse();
+                }
+            }
+
+            function reload(callback) {
+                var apiUrl = $('#api-source').val();
+                $.get( '/api/grab?targetUrl=' +  encodeURIComponent(apiUrl), function( data ) {
+                    apiData = data;
+                    if (callback instanceof Function) {
+                        callback(data);
+                    }
+                });
+            }
+
+            function parse() {
+
+                // clear the table
+                $('#result-table').empty();
+
+                // parse the query string
+
+                var query = $('#query-string').val();
+                var path = query.split('.');
+
+                // extract content using query
+
+                var output = apiData;
+                for (var index = 0; index < path.length; index++) {
+                    output = output[path[index]];
+                }
+
+                // get the properties to display
+
+                var properties = $('#result-properties').val().split(',');
+
+                // add header
+                /*
+                for (var pi = 0; pi < properties.length; pi++) {
+                    var rowElement = document.createElement('div');
+                    $(rowElement).addClass('header');
+                    $(rowElement).html(properties[pi]);
+                    $('#result-table').append(rowElement);
+                }
+                */
+
+                // add values
+
+                for (var oi = 0; oi < output.length; oi++) {
+                    var row = output[oi];
+                    var rowElement = document.createElement('div');
+                    $(rowElement).addClass('row');
+                    $('#result-table').append(rowElement);
+                    for (var pi = 0; pi < properties.length; pi++) {
+                        // create the cell
+                        var cellElement = document.createElement('div');
+                        $(cellElement).addClass('cell');
+                        // add values to cell
+                        // handle . in property name
+                        var requiredProperty = properties[pi].split('.');
+                        var value = row;
+                        for (var index = 0; index < requiredProperty.length; index++) {
+                            if(value) {
+                                value = value[requiredProperty[index].trim()];
+                            }
+                        }
+                        // var value = row[properties[pi].trim()];
+                        addValue(cellElement, properties[pi].trim(), value);
+                        // add cell
+                        $(rowElement).append(cellElement);
+                    }
+                }
+            };
+
+            $(function() {
+                $('#reload-button').on('click', reload);
+                $('#go-button').on('click', display);
+                $('#query-string').on('change', display);
+                $('#result-properties').on('change', display);
+            });
+
+        })();
+      </script>
+
+  </body>
+</html>
