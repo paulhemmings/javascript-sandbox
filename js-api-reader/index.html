@@ -28,6 +28,11 @@
           }
           #result-table div.row {
               border-top:solid 1px #eee;
+              width: 100%;
+          }
+          #result-table div.row:hover {
+              background-color: #e9eaed;
+
           }
           div.object-item {
           }
@@ -69,6 +74,43 @@
 
             var apiData = null;
 
+            function conditionalValue(content, valueSpec) {
+                var nullString = ["null", "undefined"];
+                var operators = valueSpec.match(/[!|<|>|=]/g);
+                if (!operators) {
+                		return {
+                      'property': valueSpec,
+                      'value': content[valueSpec],
+                      'include': true
+                    }
+                }
+                var operator = operators.join('');
+                var leftright = valueSpec.split(operator);
+                var leftValue = content[leftright[0].trim()];
+                var rightValue = nullString.indexOf(leftright[1].trim()) >=0 ? null : leftright[1].trim();
+
+                // oh there has to be a better way..
+
+                if (operator == "==") {
+                		result = leftValue == rightValue;
+                } else if (operator == "!=") {
+                		result = leftValue != rightValue;
+                } else if (operator == "<=") {
+                		result = leftValue <= rightValue;
+                } else if (operator == ">=") {
+                		result = leftValue >= rightValue;
+                } else if (operator == ">") {
+                		result = leftValue > rightValue;
+                } else if (operator == "<") {
+                		result = leftValue < rightValue;
+                }
+
+                return {
+                  'property': leftright[0].trim(),
+                  'value': leftValue,
+                  'include': result
+                };
+            }
 
             function addValue(cellElement, header, value) {
                 if (Array.isArray(value)) {
@@ -158,16 +200,27 @@
                         // add values to cell
                         // handle . in property name
                         var requiredProperty = properties[pi].split('.');
-                        var value = row;
+                        var content = row;
+                        var propValue;
                         for (var index = 0; index < requiredProperty.length; index++) {
-                            if(value) {
-                                value = value[requiredProperty[index].trim()];
+                            if (content) {
+                                propValue = conditionalValue(content, requiredProperty[index].trim());
+                                if (propValue.include) {
+                                    content = propValue.value;
+                                }
                             }
+
+                            // if(value) {
+                            //     value = value[requiredProperty[index].trim()];
+                            // }
                         }
                         // var value = row[properties[pi].trim()];
-                        addValue(cellElement, properties[pi].trim(), value);
-                        // add cell
-                        $(rowElement).append(cellElement);
+                        // addValue(cellElement, properties[pi].trim(), value);
+                        if (propValue.include) {
+                            addValue(cellElement, properties[pi].trim(), propValue.value)
+                            // add cell
+                            $(rowElement).append(cellElement);
+                        }
                     }
                 }
             };
